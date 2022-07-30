@@ -1,0 +1,39 @@
+name: PRs
+
+on:
+  pull_request:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          clean: 'true'
+          submodules: 'false'
+      - uses: DoozyX/clang-format-lint-action@v0.5
+        with:
+          source: '.'
+          exclude: './external'
+
+  build-win:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        config: [debug, release]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        clean: 'true'
+        submodules: 'recursive'
+
+    - name: Premake
+      run: .\premake.bat
+      
+    - name: Add msbuild to PATH
+      uses: microsoft/setup-msbuild@v1.0.2
+
+    - name: Build
+      run: msbuild build\disco-crawler.sln -m /p:platform=x64 /p:configuration=${{ matrix.config }}

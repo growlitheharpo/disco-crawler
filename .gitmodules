@@ -1,0 +1,9 @@
+[submodule "external/heart"]
+	path = external/heart
+	url = https://github.com/growlitheharpo/heart-engine-playground.git
+[submodule "external/rapidjson"]
+	path = external/rapidjson
+	url = https://github.com/Tencent/rapidjson.git
+[submodule "external/entt"]
+	path = external/entt
+	url = https://github.com/skypjack/entt.git
