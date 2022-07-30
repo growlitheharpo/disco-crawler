@@ -7,7 +7,14 @@
 *
 */
 
+#include "rapidjson_wrapper.h"
+
+#include <heart/types.h>
+
 int main()
 {
+	// Takes ~10 seconds in debug, ~1 second in release
+	rapidjson::Document doc = ParseDocumentAsStream("C:\\Users\\James\\Desktop\\DiscoDump\\Disco Elysium.json");
+
     return 0;
 }
