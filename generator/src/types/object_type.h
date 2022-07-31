@@ -9,8 +9,10 @@
 
 #pragma once
 
-#include <heart/debug/assert.h>
+#include <heart/types.h>
 
-#include <rapidjson/document.h>
-
-rapidjson::Document ParseDocumentAsStream(const char* path);
+enum class ObjectType : uint8
+{
+	Actor,
+	Variable,
+};

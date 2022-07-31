@@ -9,8 +9,8 @@
 
 #include "rapidjson_wrapper.h"
 
-#include <heart/types.h>
 #include <heart/debug/assert.h>
+#include <heart/types.h>
 
 #include <rapidjson/filereadstream.h>
 
