@@ -13,6 +13,7 @@
 
 enum class ObjectType : uint8
 {
+	Unknown,
 	Actor,
 	Variable,
 };

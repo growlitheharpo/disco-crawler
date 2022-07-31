@@ -21,112 +21,21 @@
 
 class ManagedStringPool;
 
+struct LookbackHelper
+{
+	ObjectType type = {};
+	uint32 index = 0;
+};
+
 class ManagedString
 {
 private:
-	uint32 m_index = 0;
-#if 0
-	uint32 m_sizeAndLookback = 0;
-
-	static constexpr uint32 BitsForType = 3;
-	static constexpr uint32 BitsForSize = 10;
-	static constexpr uint32 BitsForIndex = sizeof(m_sizeAndLookback) * 8 - (BitsForType + BitsForSize);
-
-	static constexpr uint32 ShiftForType = (BitsForSize + BitsForIndex);
-	static constexpr uint32 ShiftForSize = (BitsForIndex);
-	static constexpr uint32 ShiftForIndex = 0;
-
-	static constexpr uint32 MaskForType = 0b11100000000000000000000000000000;
-	static constexpr uint32 MaskForSize = 0b00011111111110000000000000000000;
-	static constexpr uint32 MaskForIndex = 0b0000000000000111111111111111111;
-
-	template <typename T>
-	T ReadPacked(uint32 bits, uint32 shift, uint32 mask) const
-	{
-		uint32 r = m_sizeAndLookback;
-		r &= mask;
-		r = r >> shift;
-		return T(r);
-	}
-
-	template <typename T>
-	void WritePacked(T val, uint32 bits, uint32 shift, uint32 mask)
-	{
-		HEART_ASSERT(val <= T((1 << bits) - 1));
-
-		m_sizeAndLookback = m_sizeAndLookback & ~mask;
-		m_sizeAndLookback = m_sizeAndLookback | ((uint32(val) << shift) & mask);
-	}
+	uint32 m_initialized:1;
+	uint32 m_index:31;
+	uint16 m_size = 0;
 
 public:
-	uint32 GetSize() const
-	{
-		return ReadPacked<uint32>(BitsForSize, ShiftForSize, MaskForSize);
-	}
-
-	void SetSize(uint32 s)
-	{
-		WritePacked(s, BitsForSize, ShiftForSize, MaskForSize);
-	}
-
-	ObjectType GetLookbackType() const
-	{
-		return ReadPacked<ObjectType>(BitsForType, ShiftForType, MaskForType);
-	}
-
-	void SetLookbackType(ObjectType t)
-	{
-		WritePacked(t, BitsForType, ShiftForType, MaskForType);
-	}
-
-	uint32 GetLookbackIndex() const
-	{
-		return ReadPacked<uint32>(BitsForIndex, ShiftForIndex, MaskForIndex);
-	}
-
-	void SetLookbackIndex(size_t s)
-	{
-		return WritePacked(s, BitsForIndex, ShiftForIndex, MaskForIndex);
-	}
-#else
-	uint32 m_size;
-	ObjectType m_type;
-	uint32 m_lookbackIndex;
-
-public:
-	uint32 GetSize() const
-	{
-		return m_size;
-	}
-
-	void SetSize(uint32 s)
-	{
-		m_size = s;
-	}
-
-	ObjectType GetLookbackType() const
-	{
-		return m_type;
-	}
-
-	void SetLookbackType(ObjectType t)
-	{
-		m_type = t;
-	}
-
-	uint32 GetLookbackIndex() const
-	{
-		return m_lookbackIndex;
-	}
-
-	void SetLookbackIndex(size_t s)
-	{
-		m_lookbackIndex = uint32(s);
-	}
-#endif
-
-public:
-	ManagedString() = default;
+	ManagedString();
 	~ManagedString() = default;
 
 	ManagedString(const char* value);
@@ -134,6 +43,15 @@ public:
 	void InitializeLookback(ObjectType type, size_t index);
 
 	const char* CStr() const;
+
+	ObjectType GetLookbackType() const;
+
+	uint32 GetLookbackIndex() const;
+
+	uint32 GetSize() const
+	{
+		return m_size;
+	}
 };
 
 class ManagedStringPool
@@ -148,16 +66,30 @@ private:
 		typedef uint32 IndexIntoBlob;
 		typedef size_t IndexIntoStorage;
 
-		hrt::vector<hrt::string> storage;
+		struct TemporaryString
+		{
+			hrt::string value;
+			LookbackHelper lookback;
+		};
+
+		hrt::vector<TemporaryString> storage;
 		hrt::unordered_map<StringHash, IndexIntoBlob> previous;
 		hrt::unordered_map<IndexIntoBlob, IndexIntoStorage> reverse;
 
 		IndexIntoBlob runningSize = 0;
 
 		IndexIntoBlob Push(const char* entry);
-		const char* Lookup(IndexIntoBlob index) const;
 		void Finalize(uint8*& outBlob, size_t& outSize);
 	};
+
+#pragma pack(push)
+#pragma pack(1)
+	struct StringLayout
+	{
+		LookbackHelper lookback;
+		char firstCharacter;
+	};
+#pragma pack(pop)
 
 	uint8* m_blob = nullptr;
 	size_t m_size = 0;
@@ -171,6 +103,9 @@ public:
 
 	void AddString(uint32& index, uint16& size, const char* str);
 	const char* GetString(uint32 index) const;
+
+	void InitializeLookback(uint32 index, LookbackHelper lookback);
+	LookbackHelper GetLookback(uint32 index) const;
 
 	void FinalizeBuilder();
 };

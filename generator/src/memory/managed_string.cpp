@@ -11,23 +11,54 @@
 
 #include <heart/hash/string_hash.h>
 
+ManagedString::ManagedString() :
+	m_initialized(false),
+	m_index(0),
+	m_size(0)
+{
+}
+
 ManagedString::ManagedString(const char* value)
 {
-	uint16 size;
-	
-	ManagedStringPool::Get().AddString(m_index, size, value);
-	SetSize(size);
+	uint32 index;
+	ManagedStringPool::Get().AddString(index, m_size, value);
+
+	HEART_ASSERT(index < (UINT_MAX >> 1));
+	m_index = index;
+	m_initialized = true;
 }
 
 void ManagedString::InitializeLookback(ObjectType type, size_t index)
 {
-	SetLookbackType(type);
-	SetLookbackIndex(index);
+	if (!m_initialized)
+		return;
+
+	HEART_ASSERT(index < UINT_MAX);
+	ManagedStringPool::Get().InitializeLookback(m_index, LookbackHelper {type, uint32(index)});
 }
 
 const char* ManagedString::CStr() const
 {
+	if (!m_initialized)
+		return "";
+
 	return ManagedStringPool::Get().GetString(m_index);
+}
+
+ObjectType ManagedString::GetLookbackType() const
+{
+	if (!m_initialized)
+		return ObjectType::Unknown;
+
+	return ManagedStringPool::Get().GetLookback(m_index).type;
+}
+
+uint32 ManagedString::GetLookbackIndex() const
+{
+	if (!m_initialized)
+		return -1;
+
+	return ManagedStringPool::Get().GetLookback(m_index).index;
 }
 
 ManagedStringPool::Builder::IndexIntoBlob ManagedStringPool::Builder::Push(const char* entry)
@@ -35,44 +66,43 @@ ManagedStringPool::Builder::IndexIntoBlob ManagedStringPool::Builder::Push(const
 	StringHash hash = HeartMurmurHash3(entry);
 	IndexIntoBlob blobIndexIfInserted = runningSize;
 
+	// !! INCOMPATIBLE WITH LOOKBACK !!
 	// Detect duplicates
-	auto&& [previousIter, wasInserted] = previous.emplace(hash, blobIndexIfInserted);
-	if (!wasInserted)
-	{
-		return previousIter->second;
-	}
+	// auto&& [previousIter, wasInserted] = previous.emplace(hash, blobIndexIfInserted);
+	// if (!wasInserted)
+	// {
+	// 	return previousIter->second;
+	// }
 
 	auto storageIndex = storage.size();
 	storage.emplace_back(entry);
-	
+
 	reverse[blobIndexIfInserted] = storageIndex;
-	runningSize += IndexIntoBlob(storage.back().size() + 1);
+
+	size_t requiredSize = sizeof(LookbackHelper) + storage.back().value.size() + 1;
+	runningSize += IndexIntoBlob(requiredSize);
 
 	return blobIndexIfInserted;
-}
-
-const char* ManagedStringPool::Builder::Lookup(IndexIntoBlob index) const
-{
-	if (auto iter = reverse.find(index); iter != reverse.end())
-		return storage[iter->second].c_str();
-
-	HEART_ASSERT(false);
-	return nullptr;
 }
 
 void ManagedStringPool::Builder::Finalize(uint8*& outBlob, size_t& outSize)
 {
 	outSize = runningSize;
 	outBlob = (uint8*)malloc(outSize);
+	HEART_ASSERT(outBlob != nullptr);
 
 	uint8* writer = outBlob;
 	uint8* end = outBlob + outSize;
 	for (auto& entry : storage)
 	{
-		memcpy_s(writer, end - writer, entry.data(), entry.size());
-		writer += entry.size();
-		*writer = '\0';
-		++writer;
+		StringLayout* layout = (StringLayout*)writer;
+		layout->lookback = entry.lookback;
+		
+		uint8* strStart = (uint8*)&layout->firstCharacter;
+		memcpy_s(strStart, end - strStart, entry.value.data(), entry.value.size());
+
+		writer = strStart + entry.value.size();
+		*(writer++) = '\0';
 	}
 
 	HEART_ASSERT(writer == end);
@@ -106,23 +136,57 @@ void ManagedStringPool::AddString(uint32& index, uint16& size, const char* str)
 {
 	HEART_ASSERT(!m_blob);
 
-	size_t previousSize = m_builder.runningSize;
 	index = m_builder.Push(str);
-	size_t newSize = m_builder.runningSize;
-
-	size_t deltaSize = newSize - previousSize;
-	size_t len = strlen(str);
-
-	HEART_ASSERT((deltaSize - 1) == len || deltaSize == 0);
-	size = uint16(len);
+	size = uint16(strlen(str));
 }
 
 const char* ManagedStringPool::GetString(uint32 index) const
 {
 	if (m_blob)
-		return (const char*)(m_blob + index);
-	
-	return m_builder.Lookup(index);
+	{
+		const StringLayout* str = (const StringLayout*)(m_blob + index);
+		return &str->firstCharacter;
+	}
+
+	if (auto reverseIter = m_builder.reverse.find(index); reverseIter != m_builder.reverse.end())
+	{
+		Builder::IndexIntoStorage storageIndex = reverseIter->second;
+		const Builder::TemporaryString& temp = m_builder.storage[storageIndex];
+		return temp.value.c_str();
+	}
+
+	HEART_ASSERT(false);
+	return nullptr;
+}
+
+void ManagedStringPool::InitializeLookback(uint32 index, LookbackHelper lookback)
+{
+	auto reverseIter = m_builder.reverse.find(index);
+	if (reverseIter != m_builder.reverse.end())
+	{
+		Builder::IndexIntoStorage storageIndex = reverseIter->second;
+		Builder::TemporaryString& temp = m_builder.storage[storageIndex];
+		temp.lookback = lookback;
+	}
+}
+
+LookbackHelper ManagedStringPool::GetLookback(uint32 index) const
+{
+	if (m_blob)
+	{
+		const StringLayout* str = (const StringLayout*)(m_blob + index);
+		return str->lookback;
+	}
+
+	if (auto reverseIter = m_builder.reverse.find(index); reverseIter != m_builder.reverse.end())
+	{
+		Builder::IndexIntoStorage storageIndex = reverseIter->second;
+		const Builder::TemporaryString& temp = m_builder.storage[storageIndex];
+		return temp.lookback;
+	}
+
+	HEART_ASSERT(false);
+	return {};
 }
 
 void ManagedStringPool::FinalizeBuilder()

@@ -65,6 +65,8 @@ int main()
 
 	for (auto& actor : actors)
 	{
+		HEART_ASSERT(actor.name.GetLookbackType() == ObjectType::Actor);
+		HEART_ASSERT(&actors[actor.name.GetLookbackIndex()] == &actor);
 		printf("Actor %u is %s - %s\n", actor.id, actor.name.CStr(), actor.description.CStr());
 	}
 
