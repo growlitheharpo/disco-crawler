@@ -8,6 +8,8 @@
  */
 
 #include "types/actor.h"
+#include "types/conversation.h"
+#include "types/dialogue_entry.h"
 #include "types/variable.h"
 
 #include "json/rapidjson_wrapper.h"
@@ -58,6 +60,30 @@ int main()
 		{
 			variables.push_back(ParseVariable(entry.GetObject()));
 			InitializeLookback(variables.back(), variables.size() - 1);
+		}
+	}
+
+	hrt::vector<Conversation> conversations;
+	hrt::vector<DialogEntry> dialogEntries;
+	if (auto conversationsIter = rootObj.FindMember("conversations"); conversationsIter != rootObj.MemberEnd() && conversationsIter->value.IsArray())
+	{
+		auto conversationsArray = conversationsIter->value.GetArray();
+		for (auto& conversationJson : conversationsArray)
+		{
+			Conversation& conversation = conversations.emplace_back(ParseConversation(conversationJson));
+			InitializeLookback(conversation, conversations.size() - 1);
+
+			auto dialogIter = conversationJson.FindMember("dialogueEntries");
+			if (dialogIter != conversationJson.MemberEnd() && dialogIter->value.IsArray())
+			{
+				auto dialogArray = dialogIter->value.GetArray();
+				for (auto& dialogJson : dialogArray)
+				{
+					DialogEntry& dialogEntry = dialogEntries.emplace_back(ParseDialogEntry(dialogJson));
+					InitializeLookback(dialogEntry, dialogEntries.size() - 1);
+					conversation.dialogEntries.push_back(dialogEntries.size() - 1);
+				}
+			}
 		}
 	}
 

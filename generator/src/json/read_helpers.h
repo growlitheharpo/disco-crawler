@@ -45,11 +45,23 @@ struct GenericJsonReader
 			}
 
 			errno = 0;
-			auto result = strtol(str, nullptr, 0);
-			if (result == LONG_MAX || result == LONG_MIN || (result == 0 && errno == ERANGE))
-				return false;
+			if constexpr (std::is_unsigned_v<T>)
+			{
+				auto result = strtoull(str, nullptr, 0);
+				if (result == LONG_MAX || result == LONG_MIN || (result == 0 && errno == ERANGE))
+					return false;
 
-			outValue = T(result);
+				outValue = T(result);
+			}
+			else
+			{
+				auto result = strtoll(str, nullptr, 0);
+				if (result == LONG_MAX || result == LONG_MIN || (result == 0 && errno == ERANGE))
+					return false;
+
+				outValue = T(result);
+			}
+
 			return true;
 		}
 	};
