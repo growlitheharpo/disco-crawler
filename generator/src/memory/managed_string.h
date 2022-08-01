@@ -30,6 +30,8 @@ struct LookbackHelper
 class ManagedString
 {
 private:
+	friend class HashLookup;
+
 	uint32 m_initialized:1;
 	uint32 m_index:31;
 	uint16 m_size = 0;
@@ -60,6 +62,8 @@ public:
 	static ManagedStringPool& Get();
 
 private:
+	friend class HashLookup;
+
 	struct Builder
 	{
 		typedef uint32 StringHash;
@@ -107,5 +111,5 @@ public:
 	void InitializeLookback(uint32 index, LookbackHelper lookback);
 	LookbackHelper GetLookback(uint32 index) const;
 
-	void FinalizeBuilder();
+	uint32 FinalizeBuilder();
 };

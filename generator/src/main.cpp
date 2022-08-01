@@ -12,11 +12,15 @@
 #include "types/dialogue_entry.h"
 #include "types/variable.h"
 
+#include "memory/hash_lookup.h"
+#include "os/slim_win32.h"
 #include "json/rapidjson_wrapper.h"
 
 #include <heart/types.h>
 
 #include <heart/stl/vector.h>
+
+#include <iostream>
 
 template <typename T>
 void InitializeLookback(T& target, size_t index)
@@ -29,71 +33,102 @@ void InitializeLookback(T& target, size_t index)
 
 int main()
 {
-	// Takes ~10 seconds in debug, ~1 second in release
-	rapidjson::Document doc = ParseDocumentAsStream("C:\\Users\\James\\Desktop\\DiscoDump\\Disco Elysium.json");
-	if (!doc.IsObject())
-		return 1;
-
-	auto rootObj = doc.GetObject();
-
-	for (auto field = rootObj.MemberBegin(); field != rootObj.MemberEnd(); ++field)
-	{
-		printf("%s\n", field->name.GetString());
-	}
-
+	::SetConsoleOutputCP(CP_UTF8);
+	setvbuf(stdout, nullptr, _IOFBF, 1000);
+	
+	rapidjson::Document doc;
 	hrt::vector<Actor> actors;
-	if (auto actorsIter = rootObj.FindMember("actors"); actorsIter != rootObj.MemberEnd() && actorsIter->value.IsArray())
-	{
-		auto actorsArray = actorsIter->value.GetArray();
-		for (auto& entry : actorsArray)
-		{
-			actors.push_back(ParseActor(entry.GetObject()));
-			InitializeLookback(actors.back(), actors.size() - 1);
-		}
-	}
-
 	hrt::vector<Variable> variables;
-	if (auto variablesIter = rootObj.FindMember("variables"); variablesIter != rootObj.MemberEnd() && variablesIter->value.IsArray())
-	{
-		auto variablesArray = variablesIter->value.GetArray();
-		for (auto& entry : variablesArray)
-		{
-			variables.push_back(ParseVariable(entry.GetObject()));
-			InitializeLookback(variables.back(), variables.size() - 1);
-		}
-	}
-
 	hrt::vector<Conversation> conversations;
 	hrt::vector<DialogEntry> dialogEntries;
-	if (auto conversationsIter = rootObj.FindMember("conversations"); conversationsIter != rootObj.MemberEnd() && conversationsIter->value.IsArray())
-	{
-		auto conversationsArray = conversationsIter->value.GetArray();
-		for (auto& conversationJson : conversationsArray)
-		{
-			Conversation& conversation = conversations.emplace_back(ParseConversation(conversationJson));
-			InitializeLookback(conversation, conversations.size() - 1);
 
-			auto dialogIter = conversationJson.FindMember("dialogueEntries");
-			if (dialogIter != conversationJson.MemberEnd() && dialogIter->value.IsArray())
+	std::cout << "Reading json... ";
+	std::cout.flush();
+	{
+		doc = ParseDocumentAsStream("C:\\Users\\James\\Desktop\\DiscoDump\\Disco Elysium.json");
+		if (!doc.IsObject())
+			return 1;
+
+	}
+	std::cout << "Done!" << std::endl;
+
+	std::cout << "Parsing entries... ";
+	std::cout.flush();
+	{
+		auto rootObj = doc.GetObject();
+		if (auto actorsIter = rootObj.FindMember("actors"); actorsIter != rootObj.MemberEnd() && actorsIter->value.IsArray())
+		{
+			auto actorsArray = actorsIter->value.GetArray();
+			for (auto& entry : actorsArray)
 			{
-				auto dialogArray = dialogIter->value.GetArray();
-				for (auto& dialogJson : dialogArray)
+				actors.push_back(ParseActor(entry.GetObject()));
+				InitializeLookback(actors.back(), actors.size() - 1);
+			}
+		}
+
+		if (auto variablesIter = rootObj.FindMember("variables"); variablesIter != rootObj.MemberEnd() && variablesIter->value.IsArray())
+		{
+			auto variablesArray = variablesIter->value.GetArray();
+			for (auto& entry : variablesArray)
+			{
+				variables.push_back(ParseVariable(entry.GetObject()));
+				InitializeLookback(variables.back(), variables.size() - 1);
+			}
+		}
+
+		if (auto conversationsIter = rootObj.FindMember("conversations"); conversationsIter != rootObj.MemberEnd() && conversationsIter->value.IsArray())
+		{
+			auto conversationsArray = conversationsIter->value.GetArray();
+			for (auto& conversationJson : conversationsArray)
+			{
+				Conversation& conversation = conversations.emplace_back(ParseConversation(conversationJson));
+				InitializeLookback(conversation, conversations.size() - 1);
+
+				auto dialogIter = conversationJson.FindMember("dialogueEntries");
+				if (dialogIter != conversationJson.MemberEnd() && dialogIter->value.IsArray())
 				{
-					DialogEntry& dialogEntry = dialogEntries.emplace_back(ParseDialogEntry(dialogJson));
-					InitializeLookback(dialogEntry, dialogEntries.size() - 1);
-					conversation.dialogEntries.push_back(dialogEntries.size() - 1);
+					auto dialogArray = dialogIter->value.GetArray();
+					for (auto& dialogJson : dialogArray)
+					{
+						DialogEntry& dialogEntry = dialogEntries.emplace_back(ParseDialogEntry(dialogJson));
+						InitializeLookback(dialogEntry, dialogEntries.size() - 1);
+						conversation.dialogEntries.push_back(dialogEntries.size() - 1);
+					}
 				}
 			}
 		}
+
+		doc = {};
 	}
+	std::cout << "Done! Found " << actors.size() << " actors, " << conversations.size() << " conversations and " << dialogEntries.size() << " dialog nodes." << std::endl;
 
-	ManagedStringPool::Get().FinalizeBuilder();
+	std::cout << "Finalizing string pool... ";
+	std::cout.flush();
+	uint32 stringCount = ManagedStringPool::Get().FinalizeBuilder();
+	std::cout << "Done! " << stringCount << " strings pooled." << std::endl;
 
-	for (auto& actor : actors)
+	std::cout << "Compiling index... ";
+	std::cout.flush();
+	HashLookup hasher;
+	uint32 hashCount = hasher.Compile();
+	std::cout << "Done! " << hashCount << " words indexed." << std::endl;
+
+	std::string input;
+	std::cout << "Ready to search:" << std::endl;
+	while (input != "exitnow")
 	{
-		HEART_ASSERT(actor.name.GetLookbackType() == ObjectType::Actor);
-		HEART_ASSERT(&actors[actor.name.GetLookbackIndex()] == &actor);
-		printf("Actor %u is %s - %s\n", actor.id, actor.name.CStr(), actor.description.CStr());
+		std::getline(std::cin, input);
+
+		auto matches = hasher.LookupWord(input.c_str());
+		for (ManagedString& match : matches)
+		{
+			if (match.GetLookbackType() == ObjectType::DialogEntry)
+			{
+				std::cout << match.CStr() << std::endl;
+			}
+		}
+
+		std::cout << std::endl;
 	}
 
 	return 0;

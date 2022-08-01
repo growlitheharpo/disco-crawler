@@ -189,7 +189,9 @@ LookbackHelper ManagedStringPool::GetLookback(uint32 index) const
 	return {};
 }
 
-void ManagedStringPool::FinalizeBuilder()
+uint32 ManagedStringPool::FinalizeBuilder()
 {
+	uint32 stringCount = uint32(m_builder.storage.size());
 	m_builder.Finalize(m_blob, m_size);
+	return stringCount;
 }
