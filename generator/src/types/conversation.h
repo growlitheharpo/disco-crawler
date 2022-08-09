@@ -27,7 +27,9 @@ struct Conversation
 
 	uint64 articyId = 0;
 
-	hrt::vector<size_t> dialogEntries;
+	uint32 dialogEntryCount = 0;
+
+	uint32 dialogEntries[2048] = {};
 
 	std::array<ManagedString*, 1> GetStrings()
 	{

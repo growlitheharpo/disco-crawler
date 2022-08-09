@@ -92,7 +92,9 @@ int main()
 					{
 						DialogEntry& dialogEntry = dialogEntries.emplace_back(ParseDialogEntry(dialogJson));
 						InitializeLookback(dialogEntry, dialogEntries.size() - 1);
-						conversation.dialogEntries.push_back(dialogEntries.size() - 1);
+
+						HEART_ASSERT(conversation.dialogEntryCount < HeartCountOf(conversation.dialogEntries));
+						conversation.dialogEntries[conversation.dialogEntryCount++] = uint32(dialogEntries.size() - 1);
 					}
 				}
 			}
