@@ -16,9 +16,9 @@
 #include "os/slim_win32.h"
 #include "json/rapidjson_wrapper.h"
 
-#include <heart/types.h>
-
+#include <heart/countof.h>
 #include <heart/stl/vector.h>
+#include <heart/types.h>
 
 #include <iostream>
 
@@ -35,7 +35,7 @@ int main()
 {
 	::SetConsoleOutputCP(CP_UTF8);
 	setvbuf(stdout, nullptr, _IOFBF, 1000);
-	
+
 	rapidjson::Document doc;
 	hrt::vector<Actor> actors;
 	hrt::vector<Variable> variables;
@@ -48,7 +48,6 @@ int main()
 		doc = ParseDocumentAsStream("C:\\Users\\James\\Desktop\\DiscoDump\\Disco Elysium.json");
 		if (!doc.IsObject())
 			return 1;
-
 	}
 	std::cout << "Done!" << std::endl;
 

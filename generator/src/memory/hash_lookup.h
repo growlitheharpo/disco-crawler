@@ -26,7 +26,7 @@ class HashLookup
 
 	void CrunchSingleString(const char* str, PoolIndex index);
 
-	hrt::vector<PoolIndex> LookupSingleWord(std::wstring_view word);
+	hrt::vector<PoolIndex> LookupSingleWord(std::u8string_view word);
 
 public:
 	uint32 Compile();
