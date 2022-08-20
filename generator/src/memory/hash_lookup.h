@@ -12,6 +12,7 @@
 #include "memory/managed_string.h"
 
 #include <heart/types.h>
+
 #include <heart/stl/vector.h>
 
 #include <map>

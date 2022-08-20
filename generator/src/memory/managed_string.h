@@ -32,8 +32,8 @@ class ManagedString
 private:
 	friend class HashLookup;
 
-	uint32 m_initialized:1;
-	uint32 m_index:31;
+	uint32 m_initialized : 1;
+	uint32 m_index : 31;
 	uint16 m_size = 0;
 
 public:

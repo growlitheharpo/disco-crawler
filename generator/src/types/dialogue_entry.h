@@ -20,7 +20,7 @@ struct DialogEntry
 	static constexpr ObjectType Type = ObjectType::DialogEntry;
 
 	int32 id = 0;
-	
+
 	int32 conversationId = 0;
 
 	ManagedString title;

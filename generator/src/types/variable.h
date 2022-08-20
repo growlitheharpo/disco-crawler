@@ -10,8 +10,8 @@
 #pragma once
 
 #include "memory/managed_string.h"
-#include "json/read_helpers.h"
 #include "types/object_type.h"
+#include "json/read_helpers.h"
 
 #include <heart/types.h>
 

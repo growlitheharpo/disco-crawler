@@ -97,7 +97,7 @@ void ManagedStringPool::Builder::Finalize(uint8*& outBlob, size_t& outSize)
 	{
 		StringLayout* layout = (StringLayout*)writer;
 		layout->lookback = entry.lookback;
-		
+
 		uint8* strStart = (uint8*)&layout->firstCharacter;
 		memcpy_s(strStart, end - strStart, entry.value.data(), entry.value.size());
 
